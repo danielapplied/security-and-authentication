@@ -1,24 +1,30 @@
+using BCrypt.Net;
+
 public class AuthService
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly SignInManager<ApplicationUser> _signInManager;
+    private readonly UserRepository _repo;
 
-    public AuthService(
-        UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager)
+    public AuthService(UserRepository repo)
     {
-        _userManager = userManager;
-        _signInManager = signInManager;
+        _repo = repo;
     }
 
-    public async Task<bool> LoginAsync(string username, string password)
+    // Register user (hash password)
+    public void Register(string username, string email, string password, string role = "USER")
     {
-        var user = await _userManager.FindByNameAsync(username);
-        if (user == null) return false;
+        var hashedPassword = BCrypt.Net.BCrypt.HashPassword(password);
 
-        var result = await _signInManager.CheckPasswordSignInAsync(
-            user, password, lockoutOnFailure: true);
+        _repo.InsertUserWithPassword(username, email, hashedPassword, role);
+    }
 
-        return result.Succeeded;
+    // Authenticate login
+    public bool Login(string username, string password)
+    {
+        var user = _repo.GetUserWithPassword(username);
+
+        if (user == null)
+            return false;
+
+        return BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
     }
 }
